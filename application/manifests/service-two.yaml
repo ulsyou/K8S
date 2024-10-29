@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-two
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: service-two
+  template:
+    metadata:
+      labels:
+        app: service-two
+    spec:
+      containers:
+      - name: service-two
+        image: ulsyou/service-two:latest
+        ports:
+        - containerPort: 8084
+        env:
+        - name: JAVA_OPTS
+          value: "-Xmx256m -Xss32m -Djava.security.egd=file:/dev/./urandom"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-two
+spec:
+  type: NodePort
+  ports:
+  - port: 8084
+    targetPort: 8084
+  selector:
+    app: service-two

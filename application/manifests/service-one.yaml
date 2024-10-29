@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-one
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: service-one
+  template:
+    metadata:
+      labels:
+        app: service-one
+    spec:
+      containers:
+      - name: service-one
+        image: ulsyou/service-one:latest
+        ports:
+        - containerPort: 8082
+        env:
+        - name: JAVA_OPTS
+          value: "-Xmx256m -Xss32m -Djava.security.egd=file:/dev/./urandom"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "docker"
+        - name: SPRING_DATA_MONGODB_URI
+          value: "mongodb://service-one-db:27017/service-one"
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-one
+spec:
+  type: NodePort
+  ports:
+  - port: 8082         
+    targetPort: 8082   
+  selector:
+    app: service-one

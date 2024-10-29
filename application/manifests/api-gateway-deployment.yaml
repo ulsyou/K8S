@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: ulsyou/api-gateway:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: JAVA_OPTS
+          value: "-Xmx256m -Xss32m -Djava.security.egd=file:/dev/./urandom"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "docker"
+        - name: LOGSTASH_HOST
+          value: "logstash"  
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+spec:
+  type: NodePort 
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: api-gateway
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+      - name: logstash
+        image: docker.elastic.co/logstash/logstash:7.10.2  
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+          - name: logstash-config
+            mountPath: /usr/share/logstash/config
+      volumes:
+        - name: logstash-config
+          configMap:
+            name: logstash-config
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+data:
+  pipelines.yml: |
+    - pipeline.id: main
+      path.config: "/usr/share/logstash/config/logstash.conf"
+  logstash.yml: |
+    pipeline.ordered: auto
+    path.data: /usr/share/logstash/data
+    path.logs: /usr/share/logstash/logs
+  logstash.conf: |
+    input {
+      tcp {
+        port => 5000
+        codec => json_lines
+      }
+    }
+    output {
+      stdout { codec => rubydebug }
+    }
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+spec:
+  ports:
+    - port: 5000
+      targetPort: 5000
+  selector:
+    app: logstash
